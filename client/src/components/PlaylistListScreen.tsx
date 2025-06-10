@@ -1,29 +1,77 @@
 // src/components/PlaylistListScreen.tsx
 // The component for displaying the grid of all playlists.
 
-import React from 'react';
-import type { Playlist } from '../types';
+import React, { useEffect } from 'react';
+import { Table, TableRow, TableCell } from './common/Table';
+import { Button } from './common/Button';
+import { PlusIcon } from './Icons';
+import { usePlaylistManager } from '../hooks/usePlaylistManager';
+import { Spinner } from './common/Spinner';
 
-interface PlaylistListProps {
-    playlists: Playlist[];
-    onSelectPlaylist: (id: string) => void;
+interface PlaylistListScreenProps {
+    onSelectPlaylist: (playlistId: string) => void;
 }
 
-export const PlaylistListScreen: React.FC<PlaylistListProps> = ({ playlists, onSelectPlaylist }) => {
+export const PlaylistListScreen = ({ onSelectPlaylist }: PlaylistListScreenProps) => {
+    const { playlists, isLoading, error, loadPlaylists, getPlaylistTrackCount } = usePlaylistManager();
+
+    useEffect(() => {
+        loadPlaylists();
+    }, [loadPlaylists]);
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <Spinner size="lg" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="text-center text-red-500">
+                <p>Error loading playlists: {error}</p>
+                <Button onClick={loadPlaylists} className="mt-4">
+                    Retry
+                </Button>
+            </div>
+        );
+    }
+
     return (
         <div>
-            <h2 className="text-3xl font-bold mb-6">Your Playlists</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {playlists.map(playlist => (
-                    <div key={playlist.id} onClick={() => onSelectPlaylist(playlist.id)} className="bg-gray-800 rounded-lg overflow-hidden cursor-pointer group transition-all duration-300 hover:bg-gray-700">
-                        <img src={playlist.imageUrl} alt={playlist.name} className="w-full h-48 object-cover group-hover:opacity-80 transition-opacity" onError={(e) => { e.currentTarget.src = 'https://placehold.co/300/191414/FFFFFF?text=Error'; }} />
-                        <div className="p-4">
-                            <h3 className="font-bold text-lg truncate">{playlist.name}</h3>
-                            <p className="text-sm text-gray-400">{playlist.tracks.length} tracks</p>
-                        </div>
-                    </div>
-                ))}
+            <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold">Your Playlists</h2>
+                <Button icon={<PlusIcon />}>
+                    Create Playlist
+                </Button>
             </div>
+            <Table headers={['Name', 'Tracks', '']}>
+                {playlists.map(playlist => (
+                    <TableRow 
+                        key={playlist.id}
+                        onClick={() => onSelectPlaylist(playlist.id)}
+                        className="cursor-pointer hover:bg-gray-700/50"
+                    >
+                        <TableCell className="font-semibold">{playlist.name}</TableCell>
+                        <TableCell className="text-gray-300">{getPlaylistTrackCount(playlist.id)} tracks</TableCell>
+                        <TableCell>
+                            <div className="flex justify-end">
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onSelectPlaylist(playlist.id);
+                                    }}
+                                >
+                                    View
+                                </Button>
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                ))}
+            </Table>
         </div>
     );
 };
