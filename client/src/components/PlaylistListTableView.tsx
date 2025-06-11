@@ -31,7 +31,7 @@ export function PlaylistListTableView({ playlists }: PlaylistListTableViewProps)
                                 <img src={playlist.imageUrl} alt={playlist.name} className="w-16 h-16 object-cover rounded-md" />
                             </td>
                             <td className="p-4 font-semibold">{playlist.name}</td>
-                            <td className="p-4 text-gray-300 text-center">{playlist.tracks.length}</td>
+                            <td className="p-4 text-gray-300 text-center">{playlist.trackCount}</td>
                         </tr>
                     ))}
                 </tbody>

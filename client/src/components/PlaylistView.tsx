@@ -2,22 +2,23 @@
 // The component for the detailed table view of a single playlist.
 
 import React, { useState, useEffect, useRef } from 'react';
-import type { Playlist, Track } from '../types';
-import { ArrowDownIcon, ArrowUpIcon, CopyIcon, TrashIcon } from './Icons';
+import type { AppTrack } from '../pages/PlaylistPage'; // Import the new track type
 import { TagInput } from './TagInput';
 
+// A simple helper to format milliseconds into MM:SS format
+const formatDuration = (ms: number) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = ((ms % 60000) / 1000).toFixed(0);
+    return minutes + ":" + (parseInt(seconds) < 10 ? '0' : '') + seconds;
+};
+
 interface PlaylistViewProps { 
-    playlist: Playlist; 
-    tracks: Track[]; 
-    onReorder: (playlistId: string, trackIndex: number, direction: 'up' | 'down') => void;
-    onRemoveFromPlaylist: (playlistId: string, trackId: string) => void;
-    onStartMoveTrack: (trackId: string) => void;
+    tracks: AppTrack[]; 
     onUpdateTrackBpm: (trackId: string, newBpm: string) => void;
     onUpdateTrackTags: (trackId: string, newTags: string[]) => void;
 }
 
-export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, tracks, onReorder, onRemoveFromPlaylist, onStartMoveTrack, onUpdateTrackBpm, onUpdateTrackTags }) => {
-    const playlistTracks = playlist.tracks.map(trackId => tracks.find(t => t.id === trackId)).filter((t): t is Track => !!t);
+export const PlaylistView: React.FC<PlaylistViewProps> = ({ tracks, onUpdateTrackBpm, onUpdateTrackTags }) => {
     const [editingBpmTrackId, setEditingBpmTrackId] = useState<string | null>(null);
     const [bpmValue, setBpmValue] = useState('');
     const [editingTagsTrackId, setEditingTagsTrackId] = useState<string | null>(null);
@@ -41,9 +42,9 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, tracks, on
         };
     }, [editingTagsTrackId]);
 
-    const handleBpmClick = (track: Track) => {
+    const handleBpmClick = (track: AppTrack) => {
         setEditingBpmTrackId(track.id);
-        setBpmValue(track.bpm);
+        setBpmValue(track.bpm || '');
     };
 
     const handleBpmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,7 +64,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, tracks, on
         }
     };
 
-    const handleTagsClick = (track: Track) => {
+    const handleTagsClick = (track: AppTrack) => {
         setEditingTagsTrackId(track.id);
     };
 
@@ -79,24 +80,31 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, tracks, on
                 <thead className="hidden bg-gray-700 text-gray-400 uppercase text-sm md:table-header-group">
                     <tr>
                         <th className="p-4 w-12 text-center">#</th>
+                        <th className="p-4 w-16"></th>
                         <th className="p-4">Title</th>
                         <th className="p-4">Artist</th>
                         <th className="p-4">Duration</th>
                         <th className="p-4 w-24">BPM</th>
                         <th className="p-4 w-1/3">Tags</th>
-                        <th className="p-4"></th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700 md:divide-y-0">
-                    {playlistTracks.map((track, index) => (
-                        <tr key={track.id} className="block md:table-row">
+                    {tracks.map((track, index) => (
+                        <tr key={track.id} className="block md:table-row hover:bg-gray-700/50">
                             <td className="p-4 text-center text-gray-400 block md:table-cell" data-label="#"><span className="md:hidden font-bold mr-2">#</span>{index + 1}</td>
+                            <td className="p-2 text-gray-300 block md:table-cell" data-label="Album Art">
+                                <img 
+                                    src={track.album.images[2]?.url || track.album.images[1]?.url || 'https://placehold.co/64x64/1DB954/FFFFFF?text=Album'} 
+                                    alt={track.album.name} 
+                                    className="w-12 h-12 object-cover rounded-sm" 
+                                />
+                            </td>
                             <td className="p-4 font-semibold block md:table-cell" data-label="Title"><span className="md:hidden font-bold mr-2">Title</span>{track.name}</td>
-                            <td className="p-4 text-gray-300 block md:table-cell" data-label="Artist"><span className="md:hidden font-bold mr-2">Artist</span>{track.artist}</td>
-                            <td className="p-4 text-gray-300 block md:table-cell" data-label="Duration"><span className="md:hidden font-bold mr-2">Duration</span>{track.duration}</td>
-                            <td className="relative p-4 text-gray-300 block md:table-cell w-24" data-label="BPM" onClick={() => handleBpmClick(track)}>
+                            <td className="p-4 text-gray-300 block md:table-cell" data-label="Artist"><span className="md:hidden font-bold mr-2">Artist</span>{track.artists.map(a => a.name).join(', ')}</td>
+                            <td className="p-4 text-gray-300 block md:table-cell" data-label="Duration"><span className="md:hidden font-bold mr-2">Duration</span>{formatDuration(track.duration_ms)}</td>
+                            <td className="relative p-4 text-gray-300 block md:table-cell w-24" data-label="BPM" onClick={() => editingBpmTrackId !== track.id && handleBpmClick(track)}>
                                 <span className="md:hidden font-bold mr-2">BPM</span>
-                                <span className={`${editingBpmTrackId === track.id ? 'invisible' : ''}`}>{track.bpm}</span>
+                                <span className={`${editingBpmTrackId === track.id ? 'invisible' : ''} cursor-pointer`}>{track.bpm || '--'}</span>
                                 {editingBpmTrackId === track.id && (
                                     <input
                                         type="text"
@@ -114,25 +122,17 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, tracks, on
                                 {editingTagsTrackId === track.id ? (
                                     <div ref={tagsEditorRef}>
                                         <TagInput
-                                            initialTags={track.tags}
+                                            initialTags={track.tags || []}
                                             onTagsChange={handleTagsUpdate}
                                         />
                                     </div>
                                 ) : (
-                                    <div className="p-1 border border-transparent min-h-[38px] flex items-center">
+                                    <div className="p-1 border border-transparent min-h-[38px] flex items-center cursor-pointer">
                                         <div className="inline-flex flex-wrap gap-2">
-                                            {track.tags.map(tag => <span key={tag} className="bg-blue-600 text-white px-2 py-1 rounded-full text-xs">{tag}</span>)}
+                                            {(track.tags || []).map(tag => <span key={tag} className="bg-blue-600 text-white px-2 py-1 rounded-full text-xs">{tag}</span>)}
                                         </div>
                                     </div>
                                 )}
-                            </td>
-                            <td className="p-4 block md:table-cell">
-                                <div className="flex items-center justify-end gap-3">
-                                    <button onClick={() => onStartMoveTrack(track.id)} className="text-gray-400 hover:text-white"><CopyIcon /></button>
-                                    <button onClick={() => onReorder(playlist.id, index, 'up')} disabled={index === 0} className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"><ArrowUpIcon /></button>
-                                    <button onClick={() => onReorder(playlist.id, index, 'down')} disabled={index === playlistTracks.length - 1} className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"><ArrowDownIcon /></button>
-                                    <button onClick={() => onRemoveFromPlaylist(playlist.id, track.id)} className="text-red-400 hover:text-red-300"><TrashIcon /></button>
-                                </div>
                             </td>
                         </tr>
                     ))}
