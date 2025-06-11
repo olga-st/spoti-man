@@ -1,23 +1,41 @@
 // src/hooks/usePlaylistManager.ts
 // A custom hook to encapsulate all playlist and track management logic.
 
-import { useState } from 'react';
-import { mockPlaylists, mockTracks } from '../data/mockData';
-import type { Playlist, Track } from '../types';
+import { useState, useEffect } from 'react';
+import { getPlaylists, getTracks } from '../api/spotify';
+import type { Track, Playlist } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 export const usePlaylistManager = () => {
-    // In a real app, this data would be fetched from your backend.
-    const [tracks, setTracks] = useState<Track[]>(mockTracks);
-    const [playlists, setPlaylists] = useState<Playlist[]>(mockPlaylists);
+    const { accessToken } = useAuth();
+    const [playlists, setPlaylists] = useState<Playlist[]>([]);
+    const [tracks, setTracks] = useState<Track[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
 
-    const handleRemoveFromPlaylist = (playlistId: string, trackId: string) => {
-        setPlaylists(playlists.map(p => {
-            if (p.id === playlistId) {
-                return { ...p, tracks: p.tracks.filter(id => id !== trackId) };
+    useEffect(() => {
+        if (!accessToken) {
+            setLoading(false);
+            return;
+        };
+
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                const [playlistsData, tracksData] = await Promise.all([
+                    getPlaylists(),
+                    getTracks(),
+                ]);
+                setPlaylists(playlistsData);
+                setTracks(tracksData);
+            } catch (error) {
+                console.error('Failed to fetch data:', error);
+            } finally {
+                setLoading(false);
             }
-            return p;
-        }));
-    };
+        };
+
+        fetchData();
+    }, [accessToken]);
 
     const handleReorderTrack = (playlistId: string, trackIndex: number, direction: 'up' | 'down') => {
         setPlaylists(prevPlaylists => prevPlaylists.map(p => {
@@ -27,6 +45,15 @@ export const usePlaylistManager = () => {
                 const newIndex = direction === 'up' ? trackIndex - 1 : trackIndex + 1;
                 newTracks.splice(newIndex, 0, movedTrack);
                 return { ...p, tracks: newTracks };
+            }
+            return p;
+        }));
+    };
+
+    const handleRemoveFromPlaylist = (playlistId: string, trackId: string) => {
+        setPlaylists(playlists.map(p => {
+            if (p.id === playlistId) {
+                return { ...p, tracks: p.tracks.filter(id => id !== trackId) };
             }
             return p;
         }));
@@ -47,11 +74,32 @@ export const usePlaylistManager = () => {
         }));
     };
 
+    const handleUpdateTrackBpm = (trackId: string, newBpm: string) => {
+        console.log(`Updating track ${trackId} to BPM: ${newBpm}`);
+        setTracks(currentTracks =>
+            currentTracks.map(track =>
+                track.id === trackId ? { ...track, bpm: newBpm } : track
+            )
+        );
+    };
+
+    const handleUpdateTrackTags = (trackId: string, newTags: string[]) => {
+        console.log(`Updating track ${trackId} with tags: ${newTags.join(', ')}`);
+        setTracks(currentTracks =>
+            currentTracks.map(track =>
+                track.id === trackId ? { ...track, tags: newTags } : track
+            )
+        );
+    };
+
     return {
-        tracks,
         playlists,
+        tracks,
+        loading,
         handleReorderTrack,
         handleRemoveFromPlaylist,
         handleMoveToPlaylist,
+        handleUpdateTrackBpm,
+        handleUpdateTrackTags,
     };
 };
