@@ -15,12 +15,10 @@ class AuthController(private val spotifyClient: SpotifyClient) {
         value = ["/login"],
     )
     fun login(): RedirectView {
-//        val uriString = spotifyClient.getAuthorizeUri()
         val authorize = spotifyClient.authorize()
         println("login: responded with $authorize")
         val location = authorize.headers.location ?: throw RuntimeException("Location is empty")
         return RedirectView(location.toString())
-//        return RedirectView(uriString)
     }
 
     @PostMapping(
@@ -30,7 +28,7 @@ class AuthController(private val spotifyClient: SpotifyClient) {
     fun token(@RequestBody req: TokenRequest): ResponseEntity<AccessToken> {
         val response = spotifyClient.token(req.code)
         println("token: responded with $response")
-        return ResponseEntity.ok().body(AccessToken(response.access_token))
+        return ResponseEntity.ok().body(AccessToken(response.access_token, response.expires_in))
     }
 }
 
@@ -39,5 +37,6 @@ data class TokenRequest(
 )
 
 data class AccessToken(
-    val accessToken: String
+    val accessToken: String,
+    val expiresIn: Int
 )

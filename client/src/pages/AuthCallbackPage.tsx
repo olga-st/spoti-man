@@ -1,67 +1,61 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export const AuthCallbackPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { setAccessToken } = useAuth();
     const [error, setError] = useState<string | null>(null);
+    const hasRun = useRef(false);
 
     useEffect(() => {
-        const exchangeCode = async (code: string) => {
-            const codeVerifier = window.localStorage.getItem('spotify_code_verifier');
-            if (!codeVerifier) {
-                setError('Code verifier not found. Please try logging in again.');
-                return;
-            }
+        if (hasRun.current) return;
 
-            const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-            const redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
-
-            const response = await fetch('https://accounts.spotify.com/api/token', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                    client_id: clientId,
-                    grant_type: 'authorization_code',
-                    code,
-                    redirect_uri: redirectUri,
-                    code_verifier: codeVerifier,
-                }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                setError(`Failed to get token: ${errorData.error_description}`);
-                return;
-            }
-
-            const data = await response.json();
-            const { access_token, expires_in } = data;
-
-            const expiryTime = new Date().getTime() + expires_in * 1000;
-            window.localStorage.setItem('spotify_access_token', access_token);
-            window.localStorage.setItem('spotify_token_expiry', expiryTime.toString());
-            
-            setAccessToken(access_token);
-            navigate('/');
-        };
-
-        const params = new URLSearchParams(window.location.search);
+        const params = new URLSearchParams(location.search);
         const code = params.get('code');
         const errorParam = params.get('error');
 
         if (errorParam) {
             setError(`Spotify login failed: ${errorParam}`);
-        } else if (code) {
-            exchangeCode(code);
-        } else {
-            // No code and no error, redirect to home
-            navigate('/');
+            return;
         }
-    }, [navigate, setAccessToken]);
+
+        if (code) {
+            hasRun.current = true;
+            const exchangeCode = async (codeToExchange: string) => {
+                try {
+                    const response = await fetch('http://127.0.0.1:8080/token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ code: codeToExchange }),
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        setError(`Failed to get token: ${errorData.error_description || 'Unknown server error'}`);
+                        return;
+                    }
+
+                    const data = await response.json();
+                    const { accessToken, expiresIn } = data;
+
+                    const expiryTime = new Date().getTime() + (expiresIn || 3600) * 1000;
+                    console.log('[DEBUG] Setting token and expiry:', { accessToken, expiryTime });
+                    window.localStorage.setItem('spotify_access_token', accessToken);
+                    window.localStorage.setItem('spotify_token_expiry', expiryTime.toString());
+                    
+                    setAccessToken(accessToken);
+                } catch (e) {
+                    setError('An unexpected error occurred during token exchange.');
+                }
+            };
+            
+            exchangeCode(code);
+        }
+    }, [location.search, setAccessToken]);
 
     if (error) {
         return (
