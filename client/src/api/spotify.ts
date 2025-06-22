@@ -88,3 +88,30 @@ export const getPlaylistDetails = async (playlistId: string, accessToken: string
 
     return { playlist, tracks };
 }
+
+export const reorderPlaylistTracks = async (
+    playlistId: string,
+    accessToken: string,
+    rangeStart: number,
+    insertBefore: number
+): Promise<{ snapshot_id: string }> => {
+    const response = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`, {
+        method: 'PUT',
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            range_start: rangeStart,
+            insert_before: insertBefore,
+        }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Spotify API Error:', errorData);
+        throw new Error('Failed to reorder tracks');
+    }
+
+    return response.json();
+};

@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/spotiman
+    username: olya
+    password: qwerty123
+
+  flyway:
+    url: jdbc:postgresql://localhost:5432/spotiman
+    user: olya
+    password: qwerty123
+    schemas: public
+    defaultSchema: flyway
+    locations: classpath:db/migrations
+    baseline-on-migrate: true
