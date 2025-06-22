@@ -9,6 +9,10 @@ plugins {
     id("org.jooq.jooq-codegen-gradle")
     idea
 }
+object Versions {
+    val jooq = "3.20.5"
+    val postgres = "42.7.7"
+}
 
 jooq {
     configuration {
@@ -44,7 +48,6 @@ sourceSets {
     }
 }
 
-java.sourceCompatibility = JavaVersion.VERSION_21
 
 dependencies {
     implementation(kotlin("stdlib"))
@@ -55,18 +58,20 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-jooq")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
-    implementation("org.jooq:jooq:3.20.5")
+    implementation("org.jooq:jooq:${Versions.jooq}")
 
-    jooqCodegen("org.postgresql:postgresql:42.7.7")
+    runtimeOnly("org.postgresql:postgresql:${Versions.postgres}")
 
+    jooqCodegen("org.postgresql:postgresql:${Versions.postgres}")
 
-    testImplementation(platform("org.junit:junit-bom:5.9.1"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 
 tasks.test {
     useJUnitPlatform()
 }
+
+java.sourceCompatibility = JavaVersion.VERSION_21
 
 tasks.withType<KotlinCompile>().configureEach {
     compilerOptions {
